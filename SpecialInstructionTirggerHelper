@@ -1,0 +1,82 @@
+/*
+ HISTORY                                                                  
+ |                                                                           
+ |   DATE            DEVELOPER        WR/Req         DESCRIPTION                               
+ |   ====            =========        ======         =========== 
+ |  25-MAY-2016       BhanuPrakash    R4    		Initial Creatoin
+*/
+
+public class SpecialInstructionTirggerHelper {
+	
+	
+	public static void performOnStatusApproved(Map<Id, Special_Instructions__c> siOldMap, Map<Id, Special_Instructions__c> siNewMap){
+		System.debug('***** in performOnStatusApproved' );
+		Map<Id, Set<String>> siIdDepLocAccNamesMap = new Map<Id, Set<String>>() ;
+		Set<String> depLocAccNames = new Set<String>();
+		Set<String> tempDepLocAccNames = null;
+		
+		for(Id oneId : siOldMap.keySet()){
+			if((siOldMap.get(oneId).Status__c != siNewMap.get(oneId).Status__c) && 
+				siNewMap.get(oneId).Status__c.equals('Approved') && siNewMap.get(oneId).Dependent_SI_details__c.length() > 0 ){
+				tempDepLocAccNames = new Set<String>( siNewMap.get(oneId).Dependent_SI_details__c.split(','));
+				siIdDepLocAccNamesMap.put(oneId, depLocAccNames);
+				System.debug('*** tempDepLocAccNames =  ' + tempDepLocAccNames);
+				depLocAccNames.addAll(tempDepLocAccNames);
+			}
+		}
+		System.debug('****** siIdDepLocAccNamesMap size = ' + siIdDepLocAccNamesMap.keySet().size());
+		System.debug('****** siIdDepLocAccNamesMap values = ' + siIdDepLocAccNamesMap.values());
+		
+		System.debug('****** depLocAccNames = ' + depLocAccNames);
+		List<Account> deptSIAccsList = SpecialInstructionHelper.getAccsListByName(depLocAccNames);
+		System.debug('****** deptSIAccsList size = ' + deptSIAccsList.size());
+		System.debug('****** deptSIAccsList = ' + deptSIAccsList);
+		
+		//Prepare Account name key and Account record Map
+		Map<String, Account> accNameAccMap = new Map<String, Account>();
+		for(Account a : deptSIAccsList){
+			accNameAccMap.put(a.Name,a);
+		}
+		System.debug('****8 accNameAccMap size = ' + accNameAccMap.keySet().size());
+		
+		if(siIdDepLocAccNamesMap.keySet().size() > 0){
+			Special_Instructions__c newSI = null;
+			List<String> tempAccNameList = null;
+			//Map<Id, List<Special_Instructions__c>> siIDListSICreateMap = new Map<Id, List<Special_Instructions__c>>();
+			List<Special_Instructions__c> siCreateList = new List<Special_Instructions__c>();
+			//Iterate for each Primary SI record
+			for(Id oneId : siIdDepLocAccNamesMap.keySet()){
+				
+				//Iterate for each dependent SI Account record and create new SI record for each Account record
+				for(Integer i=0; i< siIdDepLocAccNamesMap.get(oneId).size();i++) {
+					tempAccNameList = new List<String>(siIdDepLocAccNamesMap.get(oneId));
+					newSI = new Special_Instructions__c();
+					System.debug('**** siIdDepLocAccNamesMap.get(oneId) = ' + tempAccNameList[i]);
+					newSI.Account__c = accNameAccMap.get(tempAccNameList[i]).Id;
+					newSI.Audience__c = siNewMap.get(oneId).Audience__c;
+					newSI.Effective_Date__c = siNewMap.get(oneId).Effective_Date__c;
+					newSI.Expiration_Date__c = siNewMap.get(oneId).Expiration_Date__c;
+					newSI.Active__c = siNewMap.get(oneId).Active__c;
+					newSI.Special_Instruction_Text__c = siNewMap.get(oneId).Special_Instruction_Text__c;
+					newSI.RecordTypeID = siNewMap.get(oneId).RecordTypeId;
+					newSI.Comments__c = siNewMap.get(oneId).Comments__c;
+					newSI.Status__c = siNewMap.get(oneId).Status__c;
+					newSI.OwnerId = siNewMap.get(oneId).OwnerId;
+					siCreateList.add(newSI);
+				} 
+				//siIDListSICreateMap
+			}
+			
+			try{
+				Database.Insert(siCreateList);
+				System.debug('*** Dependent SI recors are created  size = ' + siCreateList.size());
+				System.debug('*** Dependent SI recors are created  size = ' + siCreateList[0].Id);
+				//ApexPages.addmessage(new ApexPages.message(ApexPages.severity.INFO,'New Special Instruction record(s) are created successfully'));
+			}catch(Exception ex){
+				//ApexPages.addmessage(new ApexPages.message(ApexPages.severity.ERROR,'Exception on inserting Special Instruction record(s)'));
+			}
+					
+			}
+		
+	}
+}
