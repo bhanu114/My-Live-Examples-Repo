@@ -1,0 +1,281 @@
+/*
+ HISTORY                                                                  
+ |                                                                           
+ |   DATE            DEVELOPER        WR/Req         DESCRIPTION                               
+ |   ====            =========        ======         =========== 
+ |  23-MAY-2016       BhanuPrakash    R4    		Initial Creatoin
+*/
+/*
+*	Class Name 	:	SpecialInstructionController
+*	Class Type	:	Controller
+*/
+public with sharing class SpecialInstructionController {
+	public List<Account> hyAccList {get;set;}
+	public Special_Instructions__c si {get;set;}
+	public List<Account> localAccList {get;set;}
+	
+	public List<LocalAccWrapper> lawHyList {set; get;}
+	public List<LocalAccWrapper> lawLocList {set; get;}
+	public List<LocalAccWrapper> selectedWraps {set; get;}
+	
+	public List<SelectOption> rtNamesList {set; get;}
+	
+	public String searchString {set; get;}
+	public String selectedRTId {set; get;}
+	public Boolean isHyrachyAcc {get;set;}
+	
+	Map<String,Account_Record_Type_List__c> accRTMap = null;
+	
+	/*
+	*	Method Name 		: 	SpecialInstructionController
+	*	Method Type			:	Constructor
+	*	Method Visibility 	:	Public
+	*	Use Of this Method : 	To Initialize variables to show in VF page
+	*   Parameter List 		:	NO
+	*	Return Type 		:	NA
+	*/
+	public SpecialInstructionController(){
+		si = new Special_Instructions__c();
+		
+		hyAccList = new List<Account>();
+		localAccList = new List<Account>();
+		
+		lawHyList = new List<LocalAccWrapper>();
+		lawLocList = new List<LocalAccWrapper>();
+		selectedWraps = new List<LocalAccWrapper>();
+		
+		isHyrachyAcc = false;
+		rtNamesList = new List<SelectOption>();
+		
+		//Get Account_Record_Type_List__c Custom setting to initiate piclist values with SI Record Types
+		accRTMap = Account_Record_Type_List__c.getall();
+		System.debug('***** accRTMap = ' + accRTMap.get('Hierarchy Node').RT_ID_value__c);
+		rtNamesList.add(new SelectOption('','Select--'));
+		rtNamesList.add(new SelectOption(accRTMap.get('Hierarchy Node').RT_ID_value__c,'Hierarchy Node'));
+		rtNamesList.add(new SelectOption(accRTMap.get('Location').RT_ID_value__c,'Location'));
+		//for(String str : mcs.keySet()){
+			//rtNamesList.add(new SelectOption(mcs.get(str).RT_ID_value__c,str));
+		//}
+	}
+	/*
+	*	Method Name 		: 	search
+	*	Method Type			:	Instance
+	*	Method Visibility 	:	Public
+	*	Use Of this Method : 	To perform search based on user selected Account record type and search string
+	*   Parameter List 		:	NO
+	*	Return Type 		:	PageReference
+	*/
+	public PageReference search(){
+		//Clear Previous Search result
+		selectedWraps.clear();
+		lawHyList.clear();
+		lawHyList.clear();
+		
+		try {
+			//IF selected record type is Hierarchy Node
+			if(selectedRTId.equals(accRTMap.get('Hierarchy Node').RT_ID_value__c)){
+			System.debug('*** Selected RT is  = ' + selectedRTId);
+				hyAccList = SpecialInstructionHelper.getAccsByRTypeID(searchString, selectedRTId);
+				lawHyList = getWrappersFromList(hyAccList);
+				System.debug('***** lawHyList = ' + lawHyList);
+				
+				if(lawHyList.size() < 1){
+					ApexPages.addmessage(new ApexPages.message(ApexPages.severity.WARNING,'No records are found!'));
+				} 
+			} else if(selectedRTId.equals(accRTMap.get('Location').RT_ID_value__c)){//IF selected record type is 'Location'
+				 getLocationAccsOnHYSelect();
+				if(localAccList.size() < 1){
+					 ApexPages.addmessage(new ApexPages.message(ApexPages.severity.WARNING,'No records are found!'));
+				} 
+			}
+			
+		//Get all Account records with selected Record Type Name and matching searching String with Account Name
+		}catch(Exception ex){
+			throw new CustomException(ex);
+		}
+		return null;
+	}
+	/*
+	*	Method Name 		: 	getLocationAccsOnSearch
+	*	Method Type			:	Instance
+	*	Method Visibility 	:	Public
+	*	Use Of this Method : 	To get Location Accounts based on user selected Account record type as Location
+	*   Parameter List 		:	NO
+	*	Return Type 		:	PageReference
+	*/
+	public PageReference getLocationAccsOnSearch(){
+		
+		if(selectedRTId.equals(accRTMap.get('Location').RT_ID_value__c)){
+			System.debug('*** Selected RT is  = ' + selectedRTId);
+			localAccList = SpecialInstructionHelper.getAccsByRTypeID(searchString, selectedRTId);
+			lawLocList = getWrappersFromList(localAccList);
+			System.debug('***** lawLocList = ' + lawLocList);
+		} else {
+				 ApexPages.addmessage(new ApexPages.message(ApexPages.severity.WARNING,'No records are found!'));
+		}
+		return null;
+	}
+		/*
+	*	Method Name 		: 	getLocationAccsOnHYSelect
+	*	Method Type			:	Instance
+	*	Method Visibility 	:	Public
+	*	Use Of this Method : 	To get Location Accounts based on user selected Parent Account
+	*   Parameter List 		:	NO
+	*	Return Type 		:	PageReference
+	*/
+	public PageReference getLocationAccsOnHYSelect(){
+		String hyAccId = System.currentPagereference().getParameters().get('hyAccId');
+		System.debug('*** hyAccId = ' + hyAccId);
+		//System.debug('*** selectedHYRadio = ' + selectedHYRadio);
+		
+		Set<Id> hyAccIdSet = new Set<Id>{hyAccId};
+		localAccList = SpecialInstructionHelper.getAccsByParentId(hyAccIdSet);
+		if(localAccList.size() > 0 ){
+			System.debug('**** Controller, localAccList size = ' + localAccList.size());
+			System.debug('**** Controller, localAccList name = ' + localAccList[0].Name);
+			
+			lawLocList = getWrappersFromList(localAccList);
+			System.debug('***** lawLocList = ' + lawLocList);
+		} else {
+			 ApexPages.addmessage(new ApexPages.message(ApexPages.severity.WARNING,'No records are found!'));
+		}
+		return null;
+	}
+		/*
+	*	Method Name 		: 	prepareLocationAccs
+	*	Method Type			:	Instance, UTILITY
+	*	Method Visibility 	:	Public
+	*	Use Of this Method 	: 	To get Location Accounts based on user selected Parent Account
+	*   Parameter List 		:
+	*				Param 1.
+	*				Param 2.
+	*	Return Type 		:	
+	*/
+	public PageReference prepareLocationAccs(){
+		System.debug('*** prepareLocationAccs');
+		Special_Instruction_Junction__c sij = new Special_Instruction_Junction__c();
+		
+		System.debug('**** lawLocList size = ' + lawLocList.size());
+		System.debug('**** lawLocList status = ' + lawLocList[0].isSelected);
+		//Identify all selected Location Accounts to generate Special Instruction Junction object
+		selectedWraps = getSelectedWrappersFromList(lawLocList);
+		System.debug('**** selectedWraps size = ' + selectedWraps.size());
+		
+		return null;
+	}
+		/*
+	*	Method Name 		: 	createSIJunction
+	*	Method Type			:	
+	*	Method Visibility 	:	
+	*	User Of this Method : 	
+	*   Parameter List 		:	
+	*				Param 1.
+	*				Param 2.
+	*	Return Type 		:	
+	*/
+	public PageReference createSIJunction(){
+		System.debug('*** createSIJunction, si = ' + si);
+		List<Special_Instructions__c> siCreateList = new List<Special_Instructions__c>();
+		Special_Instructions__c newSI = null;
+		String dependentSIAccountNames = '';
+		
+		for(Integer i=0; i< selectedWraps.size();i++) {
+			if(i == 0){
+				newSI = new Special_Instructions__c();
+				newSI.Account__c = selectedWraps[0].acc.Id;
+				newSI.Audience__c = si.Audience__c;
+				newSI.Effective_Date__c = si.Effective_Date__c;
+				newSI.Expiration_Date__c = si.Expiration_Date__c;
+				newSI.Active__c = false;
+				newSI.Special_Instruction_Text__c = si.Special_Instruction_Text__c;
+				newSI.RecordTypeID = '0127A0000000CG7';
+				//siCreateList.add(newSI);
+				newSI.Status__c = 'Submitted for Approval';
+				siCreateList.add(newSI);
+			} 
+			if(i == 1){
+				dependentSIAccountNames  = selectedWraps[i].acc.name;
+			} else if(i >1){
+				dependentSIAccountNames += ',' + selectedWraps[i].acc.name;
+			}
+		}
+		
+		System.debug('**** siCreateList size = ' + siCreateList.size());
+		System.debug('**** dependentSIAccountNames = ' + dependentSIAccountNames);
+		siCreateList[0].Dependent_SI_details__c = dependentSIAccountNames;
+		System.debug('**** siCreateList = ' + siCreateList);
+		
+		try{
+		Database.Insert(siCreateList);
+		ApexPages.addmessage(new ApexPages.message(ApexPages.severity.INFO,'New Special Instruction record is created successfully'));
+		}catch(Exception ex){
+			ApexPages.addmessage(new ApexPages.message(ApexPages.severity.ERROR,'Exception on inserting Special Instruction record' + ex.getMessage()));
+		}
+
+		//Database.update(siCreateList[0]);
+		System.debug('*** SI Created = ' + siCreateList);
+		return null;
+	}
+		/*
+	*	Method Name 		: 	getWrappersFromList
+	*	Method Type			:	Instance, UTILITY, Static
+	*	Method Visibility 	:	Public
+	*	User Of this Method : 	To convert List of Accounts to List of LocalAccWrapper
+	*   Parameter List 		:	
+	*				Param 1.	accList (List<Account>)
+	*	Return Type 		:	List<LocalAccWrapper>
+	*/
+	public static List<LocalAccWrapper> getWrappersFromList(List<Account> accList){
+		List<LocalAccWrapper> lawList = new List<LocalAccWrapper>();
+		LocalAccWrapper law = null;
+		
+		for(Account a : accList){
+			law = new LocalAccWrapper(a);
+			lawList.add(law);
+		}
+		return lawList;
+	}
+	/*
+	*	Method Name 		: 	getSelectedWrappersFromList
+	*	Method Type			:	Instance, UTILITY, Static
+	*	Method Visibility 	:	Public
+	*	User Of this Method : 	On selecting Location Account record find and return only selected Account Wrapper classes
+	*   Parameter List 		:	
+	*				Param 1.	allWrappers (List<LocalAccWrapper>)
+	*	Return Type 		:	List<LocalAccWrapper>
+	*/
+	public static List<LocalAccWrapper> getSelectedWrappersFromList(List<LocalAccWrapper> allWrappers){
+		List<LocalAccWrapper> selectedWraps = new List<LocalAccWrapper>();
+		for(LocalAccWrapper law : allWrappers){
+			if(law.isSelected){
+				System.debug('**** law status = ' + law.isSelected);
+				selectedWraps.add(law);
+			}
+		}
+		return selectedWraps;
+	}
+	/*
+	*	Class Name 	:	LocalAccWrapper
+	*	Class Type	:	Wrapper
+	*/
+	public class LocalAccWrapper {
+		public Boolean isSelected = false;
+		public void setIsSelected(Boolean val){
+					this.isSelected = val;
+		}
+
+		public Boolean getIsSelected(){
+				 return isSelected;
+		}
+		public Account acc {set; get;}
+		public LocalAccWrapper(Account acc){
+			isSelected = false;
+			this.acc = acc;
+		}
+	}
+	/*
+	*	Class Name 	:	CustomException
+	*	Class Type	:	Exception
+	*/
+	public class CustomException extends Exception {}
+}
