@@ -1,0 +1,60 @@
+/*
+ HISTORY                                                                  
+ |                                                                           
+ |   DATE            DEVELOPER        WR/Req         DESCRIPTION                               
+ |   ====            =========        ======         =========== 
+ |  23-MAY-2016       BhanuPrakash    R4    		Initial Creatoin
+*/
+/*
+*	Class Name 	:	SpecialInstructionHelper
+*	Class Type	:	HELPER CLASS
+*/
+public class SpecialInstructionHelper {
+	/*
+	*	Method Name 		: 	getAccsByRTypeID
+	*	Method Type			: 	STATIC
+	*	Method Visibility 	:	public
+	*	Use Of this Method : 	To get List of Accounts based on requested record type and Account name matching with Search string
+	*   Parameter List 		:
+	*				Param 1.	searchStg(String)
+	*				Param 2.	recordTypeID(String)
+	*	Return Type 		:	List<Account>
+	*/
+	public static List<Account> getAccsByRTypeID(String searchStg, String recordTypeID){
+		System.debug('*** helper, recordTypeID =  ' +  recordTypeID);
+		List<Account> hyAccList = [SELECT Id, name, RecordTypeId, ParentId, Site FROM Account where name LIKE : '%'+searchStg +'%'  AND RecordTypeId =: recordTypeID];
+		System.debug('***** Helper, hyAccList = ' + hyAccList);
+		return hyAccList;
+	}
+	/*
+	*	Method Name 		: 	getLacalAccsByHyrarchyAccId
+	*	Method Type			:	Static
+	*	Method Visibility 	:	Public 
+	*	Use Of this Method : 	To get List of Accounts based on requested Set of Parent Account IDs
+	*   Parameter List 		:
+	*				Param 1.	parId(Set<ID>)
+	*	Return Type 		:	List<Account>
+	*/
+	public static List<Account> getAccsByParentId(Set<ID> parId){
+		System.debug('*** Helper, parId = ' + parId);
+		List<Account>  accsByParIdsList = [SELECT Id, name, RecordTypeId, ParentId, Site FROM Account where parentId =: parId ];
+		System.debug('*** Helper, accsByParIdsList = ' + accsByParIdsList);
+		
+		return accsByParIdsList;
+	}
+	/*
+	*	Method Name 		: 	getLacationAccsListByName
+	*	Method Type			:	Static
+	*	Method Visibility 	:	Public
+	*	Use Of this Method : 	To get List of Accounts based on requested Set of Account Names
+	*   Parameter List 		:
+	*				Param 1.	accNameSet (Set<String>)
+	*	Return Type 		:	List<Account>
+	*/
+	public static List<Account> getAccsListByName(Set<String> accNameSet){
+		System.debug('*** Helper, accNameSet = ' + accNameSet);
+		List<Account> accsByNameList = [SELECT Id, name, RecordTypeId, ParentId, Site FROM Account where Name IN : accNameSet ];
+		System.debug('*** Helper, accsByNameList = ' + accsByNameList);
+		return accsByNameList;
+	}
+}
