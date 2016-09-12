@@ -10,6 +10,21 @@
 *	Class Type	:	HELPER CLASS
 */
 public class SpecialInstructionHelper {
+	public static String masterRTID = null;
+	public static String hyRTId = null;
+	public static String locRTId = null;
+	private static String UNRESTRICTED = 'Unrestricted';
+	
+	static{
+		hyRTId = Account_Record_Type_List__c.getall().get('Hierarchy Node').RT_ID_value__c;
+		masterRTID = Account_Record_Type_List__c.getall().get('Master Account Profile').RT_ID_value__c;
+		locRTId = Account_Record_Type_List__c.getall().get('Location').RT_ID_value__c;
+	}
+		
+	public SpecialInstructionHelper(){
+		
+	}
+	
 	/*
 	*	Method Name 		: 	getAccsByRTypeID
 	*	Method Type			: 	STATIC
@@ -20,12 +35,74 @@ public class SpecialInstructionHelper {
 	*				Param 2.	recordTypeID(String)
 	*	Return Type 		:	List<Account>
 	*/
-	public static List<Account> getAccsByRTypeID(String searchStg, String recordTypeID){
-		System.debug('*** helper, recordTypeID =  ' +  recordTypeID);
-		List<Account> hyAccList = [SELECT Id, name, RecordTypeId, ParentId, Site FROM Account where name LIKE : '%'+searchStg +'%'  AND RecordTypeId =: recordTypeID];
-		System.debug('***** Helper, hyAccList = ' + hyAccList);
+	public static List<Account> getHYAccsByRTypeID(String searchStg, String recordTypeID, String contSupStrat,String SiteNo){
+		
+		String query = 'SELECT Id, name, RecordTypeId, ParentId, Site, Controlled_Support_Strategy__c, Type FROM Account';
+		if(recordTypeID != null && recordTypeID != ''){
+			query += ' where (RecordTypeId =: recordTypeID OR RecordTypeId =: masterRTID ) AND RecordTypeId <>: locRTId ';
+			if(searchStg != null && searchStg != ''){
+				query += ' AND name LIKE '+'\'%' + searchStg + '%\'' ;
+			}
+			if(SiteNo != null && SiteNo != ''){
+				query += ' AND Site = ' + '\'' + SiteNo + '\'';
+			}
+		}
+		query += ' LIMIT 1000';
+		System.debug('*** query = ' + query);
+		List<Account> hyAccList = null;
+		try{
+		 hyAccList = (List<Account>) Database.query(query);//[SELECT Id, name, RecordTypeId, ParentId, Site FROM Account where name LIKE : '%'+searchStg +'%'  AND RecordTypeId =: recordTypeID];
+		}catch(Exception ex){
+		 System.debug('***** Helper, exception  = ' + ex.getMessage());
+		}
 		return hyAccList;
 	}
+	/*
+	*	Method Name 		: 	getAccsByRTypeID
+	*	Method Type			: 	STATIC
+	*	Method Visibility 	:	public
+	*	Use Of this Method : 	To get List of Accounts based on requested record type and Account name matching with Search string
+	*   Parameter List 		:
+	*				Param 1.	searchStg(String)
+	*				Param 2.	recordTypeID(String)
+	*	Return Type 		:	List<Account>
+	*/
+	public static List<Account> getLocationAccsByRTypeID(String searchStg, String recordTypeID, String contSupStrat,String SiteNo){
+		String query = 'SELECT Id, name, RecordTypeId, ParentId, Site, Controlled_Support_Strategy__c, Type FROM Account';
+		if(recordTypeID != null && recordTypeID != ''){
+			query += ' where RecordTypeId =:recordTypeID ';
+			if(searchStg != null && searchStg != ''){
+				//query += ' AND ( name LIKE '+'\'%' + searchStg + '%\'' + ' OR ID = ' +'\'' + searchStg +'\'' +' )' ;
+				query += ' AND name LIKE '+'\'%' + searchStg + '%\'' ;
+			}
+			if(contSupStrat != null && contSupStrat != ''){
+				if(contSupStrat.equals(UNRESTRICTED)){
+				if(contSupStrat.equals(UNRESTRICTED)){
+					//query += ' AND Controlled_Support_Strategy__c = '+'\'' + contSupStrat + '\'' ;
+					query += ' AND (Controlled_Support_Strategy__c = '+'\'' + contSupStrat + '\' OR Controlled_Support_Strategy__c = \'\' OR Controlled_Support_Strategy__c = NULL )';
+				} else {
+					query += ' AND Controlled_Support_Strategy__c = '+'\'' + contSupStrat + '\'' ;
+				}
+			}
+			} //else {
+				//query += ' AND Controlled_Support_Strategy__c = '+'\'' + UNRESTRICTED + '\'' ;
+			//}
+			if(SiteNo != null && SiteNo != ''){
+				query += ' AND Site = ' + '\'' + SiteNo + '\'';
+			}
+		}
+		query += ' LIMIT 1000';
+		System.debug('*** getLocationAccsByRTypeID query = ' + query);
+		List<Account> locationAccList = null;
+		try{
+			locationAccList = (List<Account>) Database.query(query);//[SELECT Id, name, RecordTypeId, ParentId, Site FROM Account where name LIKE : '%'+searchStg +'%'  AND RecordTypeId =: recordTypeID];
+		}catch(Exception ex){
+			
+		System.debug('***** Helper, exception  = ' + ex.getMessage());
+		}
+		return locationAccList;
+	}
+	
 	/*
 	*	Method Name 		: 	getLacalAccsByHyrarchyAccId
 	*	Method Type			:	Static
@@ -35,12 +112,119 @@ public class SpecialInstructionHelper {
 	*				Param 1.	parId(Set<ID>)
 	*	Return Type 		:	List<Account>
 	*/
-	public static List<Account> getAccsByParentId(Set<ID> parId){
-		System.debug('*** Helper, parId = ' + parId);
-		List<Account>  accsByParIdsList = [SELECT Id, name, RecordTypeId, ParentId, Site FROM Account where parentId =: parId ];
-		System.debug('*** Helper, accsByParIdsList = ' + accsByParIdsList);
+	public static List<Account> getAccsByParentId(Set<ID> parId, String contSupStrat){
 		
-		return accsByParIdsList;
+		List<Account> filteringAccList = new List<Account>();
+		Set<Account> finalLocaitonAccList = new Set<Account>();
+		List<Account> firstLevalLocAccList = new List<Account>();
+		List<Account> secondLevalLocAccList = new List<Account>();
+		List<Account> thirLevalLocAccList = new List<Account>();
+		List<Account> forthLevalLocAccList = new List<Account>();
+		List<Account> fifthLevalLocAccList = new List<Account>();
+		
+		String query = 'SELECT Id, name, RecordTypeId, ParentId, Site, Controlled_Support_Strategy__c, Type FROM Account';
+		
+		if(parId != null && parId.size() > 0 ){
+			query += ' where parentId IN: parId';
+		}
+		if(contSupStrat != null && contSupStrat != ''){
+			if(contSupStrat.equals(UNRESTRICTED)){
+				if(contSupStrat.equals(UNRESTRICTED)){
+					//query += ' AND Controlled_Support_Strategy__c = '+'\'' + contSupStrat + '\'' ;
+					query += ' AND (Controlled_Support_Strategy__c = '+'\'' + contSupStrat + '\' OR Controlled_Support_Strategy__c = \'\' OR Controlled_Support_Strategy__c = NULL )';
+				} else {
+					query += ' AND Controlled_Support_Strategy__c = '+'\'' + contSupStrat + '\'' ;
+				}
+			}
+		} 
+		query += ' LIMIT 1000';
+		System.debug('*** getAccsByParentId query = ' + query);
+		//try{
+		//GET ALL IMMIDIATE CHILDS
+		firstLevalLocAccList = (List<Account>) Database.query(query);//[SELECT Id, name, RecordTypeId, ParentId, Site FROM Account where name LIKE : '%'+searchStg +'%'  AND RecordTypeId =: recordTypeID];
+		filteringAccList.addAll(firstLevalLocAccList);
+		Integer bfCount = filteringAccList.size();
+		Integer afCount = 0;
+		if(bfCount > 0){
+			secondLevalLocAccList =	loopForLocations(firstLevalLocAccList, contSupStrat);
+			filteringAccList.addAll(secondLevalLocAccList);
+			afCount = filteringAccList.size();
+			
+			if(bfCount != afCount){
+				bfCount = afCount;
+				thirLevalLocAccList = loopForLocations(secondLevalLocAccList, contSupStrat);
+				filteringAccList.addAll(thirLevalLocAccList);
+				afCount = filteringAccList.size();
+				
+				if(bfCount != afCount){
+					bfCount = afCount;
+					forthLevalLocAccList = loopForLocations(thirLevalLocAccList, contSupStrat);
+					filteringAccList.addAll(forthLevalLocAccList);
+					afCount = filteringAccList.size();
+					
+					if(bfCount != afCount){
+						bfCount = afCount;
+						fifthLevalLocAccList = loopForLocations(forthLevalLocAccList, contSupStrat);
+						filteringAccList.addAll(fifthLevalLocAccList);
+						afCount = filteringAccList.size();
+					}
+				}
+			}
+		}
+		
+		Integer allAccSize =  filteringAccList.size();
+		
+		for(Integer i=0; i < allAccSize; i++) {
+			if(filteringAccList[i].Type.equals('Hierarchy Node') || filteringAccList[i].Type.equals('Master Account Profile')){
+				
+			} else {
+				finalLocaitonAccList.add(filteringAccList[i]);
+			}
+		}
+		//remove duplicate Account and send only unique accounts
+		//Set<String> uniqueAccNames = new Set<String>();
+		//for(Account a  : finalLocaitonAccList){
+			
+			//uniqueAccNames.add(a.Name);
+		//}
+		
+		//requery for second level
+		return new List<Account>(finalLocaitonAccList);
+	}
+	public static List<Account> loopForLocations(List<Account> accList, String contSupStrat){
+		
+		Set<ID> parId = new Set<ID>();
+		for(Account a2 : accList){
+			if(a2.Type.equals('Hierarchy Node') || a2.Type.equals('Master Account Profile')){
+				parId.add(a2.Id);
+			}
+		}
+		
+		String query = 'SELECT Id, name, RecordTypeId, ParentId, Site, Controlled_Support_Strategy__c, Type FROM Account';
+		
+		if(parId != null && parId.size() > 0 ){
+			query += ' WHERE parentId IN: parId';
+		}
+		if(contSupStrat != null && contSupStrat != ''){
+			//query += ' AND Controlled_Support_Strategy__c = '+'\'' + contSupStrat + '\'' ;
+			if(contSupStrat.equals(UNRESTRICTED)){
+				if(contSupStrat.equals(UNRESTRICTED)){
+					//query += ' AND Controlled_Support_Strategy__c = '+'\'' + contSupStrat + '\'' ;
+					query += ' AND (Controlled_Support_Strategy__c = '+'\'' + contSupStrat + '\' OR Controlled_Support_Strategy__c = \'\' OR Controlled_Support_Strategy__c = NULL )';
+				} else {
+					query += ' AND Controlled_Support_Strategy__c = '+'\'' + contSupStrat + '\'' ;
+				}
+			}
+		}
+		//query += ' AND RecordTypeId =:locRTId ';
+		query += ' LIMIT 1000';
+		System.debug('**** loopForLocations, query = ' + query);
+		if(parId.size() > 0){
+			List<Account> subAccList = (List<Account>) Database.query(query);
+			return subAccList;
+		}
+		
+		return new List<Account>();
 	}
 	/*
 	*	Method Name 		: 	getLacationAccsListByName
@@ -52,9 +236,14 @@ public class SpecialInstructionHelper {
 	*	Return Type 		:	List<Account>
 	*/
 	public static List<Account> getAccsListByName(Set<String> accNameSet){
-		System.debug('*** Helper, accNameSet = ' + accNameSet);
-		List<Account> accsByNameList = [SELECT Id, name, RecordTypeId, ParentId, Site FROM Account where Name IN : accNameSet ];
-		System.debug('*** Helper, accsByNameList = ' + accsByNameList);
+		String query = 'SELECT Id, name, RecordTypeId, ParentId, Site, Controlled_Support_Strategy__c, Type FROM Account';
+		
+		if(accNameSet != null && accNameSet.size() > 0){
+			query += ' where Name IN : accNameSet';
+			
+		}
+		query += ' LIMIT 1000';
+		List<Account> accsByNameList = (List<Account>) Database.query(query);//[SELECT Id, name, RecordTypeId, ParentId, Site FROM Account where Name IN : accNameSet ];
 		return accsByNameList;
 	}
 }
