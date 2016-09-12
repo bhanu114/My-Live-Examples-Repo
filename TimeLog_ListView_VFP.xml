@@ -1,0 +1,17 @@
+
+<!-- TimeLog_ListView_VFP-->
+<apex:page standardController="Time_Log__c"  extensions="TimeTrackingController" >
+  <apex:form>
+  <apex:pageBlock >
+ 
+	<b>
+      <h1><apex:outputText style="font-size:20px;" Value="{! $Label.SI_My_Daily_Accrued}  {! totUnsubAcrudHrs} {! $Label.SI_Hours} {! totUnsubAcrudMins} {! $Label.SI_Minutes}"/></h1>
+	   </b>
+	  <center><apex:commandButton action="{! init}" value="{! $Label.TT_Refresh}"/></center>
+  </apex:pageBlock>
+  </apex:form>
+  <apex:pageBlock >
+      <apex:enhancedList type="Time_log__c" height="300" rowsPerPage="10" id="timeLogListViewId"/>
+  </apex:pageBlock>
+  
+</apex:page>

@@ -1,0 +1,105 @@
+<!--
+HISTORY   - Time_Logging                                                       
+|                                                                           
+|   DATE            DEVELOPER        WR/Req         DESCRIPTION                               
+|   ====            =========        ======         =========== 
+|  23-MAY-2016       BhanuPrakash    R4            Initial Creatoin
+-->
+<apex:page standardController="Time_Log__c"  extensions="TimeTrackingController" >
+    
+	<apex:includeScript value="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"/>
+	<apex:includeScript value="/support/console/29.0/integration.js" />
+    <div class="container">
+        <apex:form id="myForm">
+            <apex:pageMessages > </apex:pageMessages>
+             <apex:pageBlock >
+					<apex:outputText style="font-size:15px;"  Value="{! $Label.SI_My_Daily_Accrued}  {! totUnsubAcrudHrs} {! $Label.SI_Hours} {! totUnsubAcrudMins} {! $Label.SI_Minutes} "/>
+				
+              </apex:pageBlock>
+            <apex:pageBlock title="{!$Label.TT_SRTimeTracker}" ><!--rendered="{!lawHyList.size == 0}" -->
+                <apex:pageBlockButtons >
+                    <apex:commandButton action="{!submit}" value="{! $Label.SI_Save}"/>
+                </apex:pageBlockButtons>
+                
+                <apex:pageBlockSection columns="1" collapsible="true" >  
+                    
+                    <apex:outputPanel id="srRQNumberPanel">
+					<!--<apex:outputLabel value="Service Request : " />
+					<apex:inputText style="width:100px" id="srRQNumber" value="{!autoORManualSRRQNumber}" />-->
+					
+					<table>
+						<tr><td><input type="radio" id="autharized" name="selection" value="autharized" checked="checked" />
+							</td>
+							<td><apex:outputLabel value="{! $Label.SI_Related_Service_Request} : " />
+							</td>
+							<td><apex:outputText style="width:100px" id="srRQNumber2" value="{!autoORManualSRRQNumber}" />
+							</td>
+						</tr>
+						<tr>
+							<td><input type="radio" id="unautharized" name="selection" value="unautharized" />
+							</td>
+							<td><apex:outputLabel value="{! $Label.TT_EnterServiceRequest} : " />
+							</td>
+							<td><input type="text" style="width:100px" name="unAuthorizeSrNo" id="unAuthorizeSrNo"   />
+							</td>
+						</tr>
+					 </table>
+                    </apex:outputPanel>
+                    
+                    <apex:inputText style="width:100px" Value="{! tTracking.SR_Create__c}"/>
+                    <apex:inputText style="width:100px" Value="{! tTracking.SR_Admin__c}"/>
+                    <apex:inputText style="width:100px" Value="{! tTracking.Case_Time__c}" />
+                    <apex:inputText style="width:100px" Value="{! tTracking.Exception_Handling__c}"/>
+                    <apex:inputText style="width:100px" Value="{! tTracking.Resource_Management__c}"/>
+                    <apex:inputText style="width:100px" Value="{! tTracking.Knowledge__c}"/>
+                    
+                </apex:pageBlockSection>        
+            </apex:pageBlock>
+            
+            <apex:actionFunction name="getPrimaryTabdata" action="{! getPrimaryTabdata}" reRender="srRQNumberPanel">
+                <apex:param name="recordId" value=""></apex:param>
+            </apex:actionFunction>
+        </apex:form>
+	
+	<script type="text/javascript">
+	
+        var j$ = jQuery.noConflict();
+        j$(document).ready(function () {
+            console.log(' calling, getPrimaryTabObjectId');
+            getPrimaryTabObjectId();
+            
+            /*sforce.console.addEventListener('refreshConsoleComponentOnLoad', function(result) {
+                console.log('am here refresh event');
+                getPrimaryTabObjectId();
+            });*/
+			document.getElementById('srRQNumber').readOnly=true;
+        });
+       
+        function getPrimaryTabObjectId(callBack){
+            console.log(' in, getPrimaryTabObjectId');
+            sforce.console.getFocusedPrimaryTabObjectId(function(result){
+                console.log(result.id);
+                getPrimaryTabdata(result.id);
+            });
+            console.log(' ending, getPrimaryTabObjectId');
+        } 
+        
+        sforce.console.onFocusedPrimaryTab(getPrimaryTabObjectId);
+        
+        if( {!totUnsubAcrudHrs} < 4){
+            sforce.console.setCustomConsoleComponentButtonIconUrl('/img/msg_icons/confirm24.png');
+        }
+        if({!totUnsubAcrudHrs} >= 4 ){
+            sforce.console.setCustomConsoleComponentButtonIconUrl('/img/msg_icons/warning24.png');
+        }
+		//if({!totUnsubAcrudHrs} >= 4 && {!totUnsubAcrudHrs} < 6){
+           // sforce.console.setCustomConsoleComponentButtonIconUrl('/img/msg_icons/warning24.png');
+        //}
+        //if({!totUnsubAcrudHrs} >= 6){
+          //  sforce.console.setCustomConsoleComponentButtonIconUrl('/img/msg_icons/error24.png');
+        //}
+        
+	</script>
+       
+    </div>
+</apex:page>
