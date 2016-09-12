@@ -1,122 +1,83 @@
-<!--
- HISTORY   - SpecialInstructionPage                                                       
- |                                                                           
- |   DATE            DEVELOPER        WR/Req         DESCRIPTION                               
- |   ====            =========        ======         =========== 
- |  23-MAY-2016       BhanuPrakash    R4    		Initial Creatoin
+<!-- SpecialInstructionsPage
+@Author: Sri SM
+@CreatedDate: 18/05/2016
+@Release: S360 R4
+@Description: This page will return the list of Special Messages associated to the Asset and Accounts of a SR.
 -->
-<apex:page controller="SpecialInstructionController">
-
-   <apex:form id="myForm">
-     <apex:pageMessages > </apex:pageMessages>
-         <apex:pageBlock title="Search" ><!--rendered="{!lawHyList.size == 0}" -->
-            <apex:pageBlockButtons >
-                <apex:commandButton action="{!search}" value="Search"/>
-            </apex:pageBlockButtons>
-			
-            <apex:pageBlockSection > 
-                <apex:pageBlockSectionItem >
-                    <apex:outputLabel value="Select Record Type : " for="rtName"/>
-					<apex:selectList value="{!selectedRTId}" multiselect="false" size="1" >
-						<apex:selectOptions value="{!rtNamesList}"/>
-					</apex:selectList>
-                </apex:pageBlockSectionItem>
-            </apex:pageBlockSection>
-		
-			<apex:pageBlockSection > 
-					<apex:pageBlockSectionItem >
-						<apex:outputLabel value="Seach Text : " for="searchString"/>
-						<apex:inputText  id="searchString" value="{! searchString}"/>
-					</apex:pageBlockSectionItem>
-			</apex:pageBlockSection>
-		</apex:pageBlock>
-		
-		<apex:pageBlock rendered="{!lawHyList.size > 0}" >
-
-			<apex:pageBlockButtons >
-				<apex:commandButton action="{!getLocationAccsOnHYSelect}" value="GO"/>
-			</apex:pageBlockButtons>
-			
-		<apex:pageBlockSection title="Hierarchy Node Account(s)" >
-			<apex:pageBlockSectionItem >
-				<apex:pageBlockTable value="{!lawHyList}" var="law" id="theTable" >
-				<apex:column headerValue="Select">
-						<input type="radio" id="hyAccId" name="hyAccId" value="{!law.acc.Id}" onclick=""  />
-						<!--<apex:selectRadio value="{!selectedHYRadio}">
-							<apex:selectOption itemValue="{!law.isSelected}"></apex:selectOption>
-							
-							<apex:actionSupport event="onchange" 
-												action="{!checkSelectedValue}" 
-												reRender="none">
-												
-						</apex:selectRadio> -->
-				</apex:column>
-						<apex:column headerValue="Account Name" value="{!law.acc.Name}"/> 
-				<apex:column headerValue="Account Site" value="{!law.acc.Site}"/> 
-				</apex:pageBlockTable>
-			</apex:pageBlockSectionItem >
-						   
-			</apex:pageBlockSection>
-		 </apex:pageBlock>
-		 
-		 
-		 <!--<apex:panelGrid > -->
-		<apex:pageBlock rendered="{!lawLocList.size > 0}">
-			<apex:pageBlockButtons >
-				<apex:commandButton action="{!prepareLocationAccs}" value="GO"/>
-			</apex:pageBlockButtons>
-			
-			<apex:pageBlockSection title="Locations Account(s)" >
-				<apex:pageBlockTable value="{!lawLocList}" var="law" id="theTable" >
-					
-					<apex:column headerValue="Select" >
-							<apex:param name="hyAccId" value="{!law.acc.Id}"/>
-							<!--<input type="checkbox" id="{!law.acc.Id}" name="{!law.acc.Id}" value="{!law.isSelected}" onclick=""  />-->
-							<apex:inputCheckbox   value="{!law.isSelected}" />
-					</apex:column>
-					<apex:column headerValue="Account Name" value="{!law.acc.Name}"/> 
-					<apex:column headerValue="Parent Account Id" value="{!law.acc.ParentId}"/> 
-					<apex:column headerValue="Account Site" value="{!law.acc.Site}"/> 
-				</apex:pageBlockTable>
-
-						   
-			</apex:pageBlockSection>
-		 </apex:pageBlock>
-		 <!--</apex:panelGrid > -->
-		 
-		 
-		 <apex:pageBlock rendered="{!selectedWraps.size > 0}">
-			<apex:pageBlockButtons >
-				<apex:commandButton action="{!createSIJunction}" value="Create"/>
-			</apex:pageBlockButtons>
-				
-			<apex:pageBlockSection title="Special Instrucitons details" >
-                <apex:pageBlockSectionItem >
-                    <apex:outputLabel value="Audience : " />
-					<apex:inputField value="{!si.Audience__c}" required="ture"/>
-                </apex:pageBlockSectionItem>
-				<apex:pageBlockSectionItem >
-                    <apex:outputLabel value="Effective Date : " />
-					<apex:inputField value="{!si.Effective_Date__c}"/>
-                </apex:pageBlockSectionItem>
-				<apex:pageBlockSectionItem >
-                    <apex:outputLabel value="Expiration Date : " />
-					<apex:inputField value="{!si.Expiration_Date__c}"/>
-                </apex:pageBlockSectionItem>
-				<apex:pageBlockSectionItem >
-                    <apex:outputLabel value="Special InstructionText : " />
-					<apex:inputField value="{!si.Special_Instruction_Text__c}"/>
-                </apex:pageBlockSectionItem>
-				
-				</apex:pageBlockSection>
-			 </apex:pageBlock>
-		 
-		 
-		 
-		 
-		 
-		 
-		
-		
-	</apex:form>
+<apex:page standardController="Case" extensions="SpecialInstructionsPageController" action="{!init}">
+    <apex:pageBlock rendered="{!siAccountList.size>0}">
+        <apex:pageBlockSection title="{!$Label.Special_Instruction_Account_Title}" columns="1">
+            <apex:PageBlockTable value="{!siAccountList}" var="si"> 
+                <apex:column headerValue="{!$Label.Special_Instruction_Name}">                    
+                    <apex:outputLink value="/{!si.Id}" target="_blank">{!si.Name}</apex:outputLink>
+                </apex:column>               
+                <apex:column headerValue="{!$Label.Special_Instruction_Audience}">
+                    {!si.Audience__c}
+                </apex:column>
+                <apex:column headerValue="{!$Label.Special_Instruction_Text}">
+                    {!si.Special_Instruction_Text__c}
+                </apex:column>
+                <apex:column headerValue="{!$Label.Special_Instruction_Type}">
+                    {!si.Type__c}
+                </apex:column>
+                <apex:column headerValue="{!$Label.Special_Instruction_Partner}">
+                    {!si.Partner__c}
+                </apex:column>
+                <apex:column headerValue="{!$Label.Special_Instruction_Effective_Date}">
+                 <apex:outputText value="{0,date,MM'/'dd'/'yyyy}" >
+                     <apex:param value="{!si.Effective_Date__c}"/>
+                 </apex:outputText>
+                   <!-- {!si.Effective_Date__c}-->
+                </apex:column>
+                <apex:column headerValue="{!$Label.Special_Message_Expiration_Date}">
+                <apex:outputText value="{0,date,MM'/'dd'/'yyyy}" >
+                     <apex:param value="{!si.Expiration_Date__c}"/>
+                 </apex:outputText>
+                </apex:column>     
+                 <apex:column headerValue="{!$Label.SI_Pending_Expiration}">
+                 <div>
+                    <apex:outputField value="{!si.Pending__c}"/>
+                </div>
+                </apex:column>
+            </apex:PageBlockTable>
+        </apex:pageBlockSection>
+    </apex:pageBlock>
+    
+    <apex:pageBlock rendered="{!siAssetList.size>0}">
+        <apex:pageBlockSection title="{!$Label.Special_Instruction_Asset_Title}" columns="1">
+            <apex:PageBlockTable value="{!siAssetList}" var="si">
+                <apex:column headerValue="{!$Label.Special_Instruction_Name}">                    
+                    <apex:outputLink value="/{!si.Id}" target="_blank">{!si.Name}</apex:outputLink>
+                </apex:column>
+               <apex:column headerValue="{!$Label.Special_Instruction_Audience} {!si.Audience__c}">
+                    {!si.Audience__c}
+                </apex:column>
+                 <apex:column headerValue="{!$Label.Special_Instruction_Text}">
+                    {!si.Special_Instruction_Text__c}
+                </apex:column>
+                <apex:column headerValue="{!$Label.Special_Instruction_Type}">
+                    {!si.Type__c}
+                </apex:column>
+                <apex:column headerValue="{!$Label.Special_Instruction_Partner}">
+                    {!si.Partner__c}
+                </apex:column>
+                <apex:column headerValue="{!$Label.Special_Instruction_Effective_Date}">
+                 <apex:outputText value="{0,date,MM'/'dd'/'yyyy}" >
+                     <apex:param value="{!si.Effective_Date__c}"/>
+                 </apex:outputText>
+                   <!-- {!si.Effective_Date__c}-->
+                </apex:column>
+                <apex:column headerValue="{!$Label.Special_Message_Expiration_Date}">
+                <apex:outputText value="{0,date,MM'/'dd'/'yyyy}" >
+                     <apex:param value="{!si.Expiration_Date__c}"/>
+                 </apex:outputText>
+                </apex:column>  
+                 <apex:column headerValue="{!$Label.SI_Pending_Expiration}">
+                 <div>
+                    <apex:outputField value="{!si.Pending__c}"/>
+                </div>
+                </apex:column>
+            </apex:PageBlockTable>
+        </apex:PageBlockSection>
+    </apex:pageBlock>
 </apex:page>
