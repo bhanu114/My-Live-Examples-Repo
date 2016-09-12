@@ -8,75 +8,203 @@
 
 public class SpecialInstructionTirggerHelper {
 	
-	
-	public static void performOnStatusApproved(Map<Id, Special_Instructions__c> siOldMap, Map<Id, Special_Instructions__c> siNewMap){
-		System.debug('***** in performOnStatusApproved' );
-		Map<Id, Set<String>> siIdDepLocAccNamesMap = new Map<Id, Set<String>>() ;
-		Set<String> depLocAccNames = new Set<String>();
-		Set<String> tempDepLocAccNames = null;
+	public static void performOnStatusPending(Map<Id, Special_Instructions__c> siOldMap, Map<Id, Special_Instructions__c> siNewMap){
+		Set<Id> submittedSIIDs = new Set<ID>();
+		Set<Id> pendingSIIDs = new Set<ID>();
+		List<Special_Instructions__c> siNewList = new List<Special_Instructions__c>();
+		Special_Instructions__c si = null;
+		List<FeedItem> feedItemPosts = new List<FeedItem>();
 		
+		//FIND SI RECORDS IF ACTIVE OR EXPIRATION DATE CHANGED
 		for(Id oneId : siOldMap.keySet()){
-			if((siOldMap.get(oneId).Status__c != siNewMap.get(oneId).Status__c) && 
-				siNewMap.get(oneId).Status__c.equals('Approved') && siNewMap.get(oneId).Dependent_SI_details__c.length() > 0 ){
-				tempDepLocAccNames = new Set<String>( siNewMap.get(oneId).Dependent_SI_details__c.split(','));
-				siIdDepLocAccNamesMap.put(oneId, depLocAccNames);
-				System.debug('*** tempDepLocAccNames =  ' + tempDepLocAccNames);
-				depLocAccNames.addAll(tempDepLocAccNames);
+			//if(siNewMap.get(oneId).Status__c == null){
+				//siNewMap.get(oneId).addError('Status field should have value to process');
+			//}else 
+				if((siOldMap.get(oneId).Active__c != siNewMap.get(oneId).Active__c || (siOldMap.get(oneId).Expiration_Date__c != siNewMap.get(oneId).Expiration_Date__c)) 
+				&&  siNewMap.get(oneId).Status__c.equals('Approved') &&  siOldMap.get(oneId).Status__c.equals('Approved')){//Pending Approval
+				System.debug('*** Active or Empiration date changed');
+				submittedSIIDs.add(oneId);
 			}
 		}
-		System.debug('****** siIdDepLocAccNamesMap size = ' + siIdDepLocAccNamesMap.keySet().size());
-		System.debug('****** siIdDepLocAccNamesMap values = ' + siIdDepLocAccNamesMap.values());
-		
-		System.debug('****** depLocAccNames = ' + depLocAccNames);
-		List<Account> deptSIAccsList = SpecialInstructionHelper.getAccsListByName(depLocAccNames);
-		System.debug('****** deptSIAccsList size = ' + deptSIAccsList.size());
-		System.debug('****** deptSIAccsList = ' + deptSIAccsList);
-		
-		//Prepare Account name key and Account record Map
-		Map<String, Account> accNameAccMap = new Map<String, Account>();
-		for(Account a : deptSIAccsList){
-			accNameAccMap.put(a.Name,a);
-		}
-		System.debug('****8 accNameAccMap size = ' + accNameAccMap.keySet().size());
-		
-		if(siIdDepLocAccNamesMap.keySet().size() > 0){
-			Special_Instructions__c newSI = null;
-			List<String> tempAccNameList = null;
-			//Map<Id, List<Special_Instructions__c>> siIDListSICreateMap = new Map<Id, List<Special_Instructions__c>>();
-			List<Special_Instructions__c> siCreateList = new List<Special_Instructions__c>();
-			//Iterate for each Primary SI record
-			for(Id oneId : siIdDepLocAccNamesMap.keySet()){
+		System.debug('*** submittedSIIDs = ' + submittedSIIDs);
+		if(submittedSIIDs.size() > 0){
+			for(ID subISID : submittedSIIDs){
+				FeedItem feedPost = null;
+				FeedItem feedPost2 = null;
+				//Get SI Group IDs
+				String cstGrtoupId = SI_Chatter_Groups_IDs__c.getInstance().CST_CG_ID__c;
+				String escalationGroupId = SI_Chatter_Groups_IDs__c.getInstance().Escalation_Managers_cG_ID__c;
+				String remoteGrtoupId = SI_Chatter_Groups_IDs__c.getInstance().Remote_Support_CG_ID__c;
 				
-				//Iterate for each dependent SI Account record and create new SI record for each Account record
-				for(Integer i=0; i< siIdDepLocAccNamesMap.get(oneId).size();i++) {
-					tempAccNameList = new List<String>(siIdDepLocAccNamesMap.get(oneId));
-					newSI = new Special_Instructions__c();
-					System.debug('**** siIdDepLocAccNamesMap.get(oneId) = ' + tempAccNameList[i]);
-					newSI.Account__c = accNameAccMap.get(tempAccNameList[i]).Id;
-					newSI.Audience__c = siNewMap.get(oneId).Audience__c;
-					newSI.Effective_Date__c = siNewMap.get(oneId).Effective_Date__c;
-					newSI.Expiration_Date__c = siNewMap.get(oneId).Expiration_Date__c;
-					newSI.Active__c = siNewMap.get(oneId).Active__c;
-					newSI.Special_Instruction_Text__c = siNewMap.get(oneId).Special_Instruction_Text__c;
-					newSI.RecordTypeID = siNewMap.get(oneId).RecordTypeId;
-					newSI.Comments__c = siNewMap.get(oneId).Comments__c;
-					newSI.Status__c = siNewMap.get(oneId).Status__c;
-					newSI.OwnerId = siNewMap.get(oneId).OwnerId;
-					siCreateList.add(newSI);
-				} 
-				//siIDListSICreateMap
-			}
-			
-			try{
-				Database.Insert(siCreateList);
-				System.debug('*** Dependent SI recors are created  size = ' + siCreateList.size());
-				System.debug('*** Dependent SI recors are created  size = ' + siCreateList[0].Id);
-				//ApexPages.addmessage(new ApexPages.message(ApexPages.severity.INFO,'New Special Instruction record(s) are created successfully'));
-			}catch(Exception ex){
-				//ApexPages.addmessage(new ApexPages.message(ApexPages.severity.ERROR,'Exception on inserting Special Instruction record(s)'));
-			}
+				System.debug('**** cstGrtoupId = ' + cstGrtoupId);
+				System.debug('**** escalationGroupId = ' + escalationGroupId);
+				System.debug('**** remoteGrtoupId = ' + remoteGrtoupId);
+				//CHATTER POST TO GROUPS ON EXPIRE/ACTIVE FIELD CHANGE
+				//CHECK IF THIS SI RECORD HAS
+				if(siNewMap.get(subISID) != null){
+					//IF THIS SI HAS JUNCTION, CREATE N NUMBER OF SI RECORDS BASED ON RELATED JUNCITON RECORDS
+					feedPost = new FeedItem();
+					feedPost.Type = 'TextPost';
 					
+					//Set parentId accroding to Audiance selected in SI Record
+					if(siOldMap.get(subISID).Active__c != siNewMap.get(subISID).Active__c){
+						feedPost.Body = Label.SI_Pls_aware_SI_Number + ' ' + siNewMap.get(subISID).Name + ' ' + Label.SI_has_Modified + '.\n' + UserInfo.getUserName() + ' ' + 
+						Label.SI_changed_Active_from + ' ' + siOldMap.get(subISID).Active__c + ' ' + Label.tolabel + ' ' + siNewMap.get(subISID).Active__c + '.';
+						
+						//Set parentId accroding to Audiance selected in SI Record
+						if(siNewMap.get(subISID).Audience__c.equals('CST')){
+							feedPost.parentId = cstGrtoupId;
+							System.debug('*** Active change, setting parent id for  CST'); 
+						}else if(siNewMap.get(subISID).Audience__c.equals('Escalation Manager')){
+							feedPost.parentId = escalationGroupId;
+							System.debug('*** Active change, setting parent id for  Escalation'); 
+						} else if(siNewMap.get(subISID).Audience__c.equals('Remote Support')){
+							feedPost.parentId = remoteGrtoupId;
+							System.debug('*** Active change, setting parent id for  Remote'); 
+						}
+						feedItemPosts.add(feedPost);
+					}
+					if(siOldMap.get(subISID).Expiration_Date__c != siNewMap.get(subISID).Expiration_Date__c){
+						feedPost2 = new FeedItem();
+						feedPost2.Type = 'TextPost';
+						feedPost2.Body = Label.SI_Pls_aware_SI_Number + ' ' + siNewMap.get(subISID).Name + ' ' + Label.SI_has_Modified + '.\n' + UserInfo.getUserName() + ' ' + 
+						Label.SI_changed_Exp_Date_form + ' ' + dateTime.newinstance(siOldMap.get(subISID).Expiration_Date__c.year(), siOldMap.get(subISID).Expiration_Date__c.month(), siOldMap.get(subISID).Expiration_Date__c.day()).format('MM-dd-YYYY')
+						+ ' ' + Label.tolabel + ' ' + dateTime.newinstance(siNewMap.get(subISID).Expiration_Date__c.year(), siNewMap.get(subISID).Expiration_Date__c.month(), siNewMap.get(subISID).Expiration_Date__c.day()).format('MM-dd-YYYY') + '.';
+						
+						//Set parentId accroding to Audiance selected in SI Record
+						if(siNewMap.get(subISID).Audience__c.equals('CST')){
+							feedPost2.parentId = cstGrtoupId;
+							System.debug('*** Expiration_Date__c change, setting parent id for  CST'); 
+						}else if(siNewMap.get(subISID).Audience__c.equals('Escalation Manager')){
+							feedPost2.parentId = escalationGroupId;
+							System.debug('*** Expiration_Date__c change, setting parent id for  Escalation'); 
+						} else if(siNewMap.get(subISID).Audience__c.equals('Remote Support')){
+							feedPost2.parentId = remoteGrtoupId;
+							System.debug('*** Expiration_Date__c change, setting parent id for  Remote'); 
+						}
+						feedItemPosts.add(feedPost2);
+						System.debug('**** Expeire date changed');
+					} 
+				}
 			}
+		System.debug('*** feedItemPosts = ' + feedItemPosts);
+		if(feedItemPosts.size()>0){
+			Database.Insert(feedItemPosts);
+		}
+		}
 		
 	}
+
+	public static void populateGroupUserEmails(List<Special_Instructions__c> newSIList) {
+		//PREPARE MAP OF AUDIANCE AND GROUP ID (ONLY FOR WHICH REQUIRED)
+		Set<String> processAudianceTypes = new Set<String>();
+		List<GroupMember> cstGroupUsers = new List<GroupMember>();
+		List<GroupMember> escGroupUsers = new List<GroupMember>();
+		List<GroupMember> remoteGroupUsers = new List<GroupMember>();
+		
+		for(Special_Instructions__c si : newSIList){
+			processAudianceTypes.add(si.Audience__c);
+		}
+		System.debug('*** processAudianceTypes = ' + processAudianceTypes);
+		
+		Map<String,String> audianceGroupIdMap = new Map<String,String>();
+		for(String audience : processAudianceTypes){
+			if(audience.equals('CST')){
+				audianceGroupIdMap.put(audience, SI_Public_Groups_IDs__c.getInstance().SI_CST_Public_Group_ID__c);
+			}else if(audience.equals('Escalation Manager')){
+				audianceGroupIdMap.put(audience, SI_Public_Groups_IDs__c.getInstance().SI_Escalation_Public_Group_ID__c);
+			}else if(audience.equals('Remote Support')){
+				audianceGroupIdMap.put(audience, SI_Public_Groups_IDs__c.getInstance().SI_Remote_Public_Group_ID__c);
+			}
+		}
+		System.debug('*** audianceGroupIdMap = ' + audianceGroupIdMap);
+		//POPULATE GROUP USER EMAILS
+		//for(String str : processAudianceTypes){
+		if(processAudianceTypes != null && processAudianceTypes.size() > 0){
+			if(processAudianceTypes.contains('CST')){
+				cstGroupUsers = [Select Id, UserOrGroupId From GroupMember Where GroupId =: audianceGroupIdMap.get('CST')];
+			}
+			if(processAudianceTypes.contains('Escalation Manager')){
+				escGroupUsers = [Select Id, UserOrGroupId From GroupMember Where GroupId =: audianceGroupIdMap.get('Escalation Manager')];
+			}
+			if(processAudianceTypes.contains('Remote Support')){
+				remoteGroupUsers = [Select Id, UserOrGroupId From GroupMember Where GroupId =: audianceGroupIdMap.get('Remote Support')];
+			}
+		}
+		System.debug('*** cstGroupUsers = ' + cstGroupUsers);
+		System.debug('*** escGroupUsers = ' + escGroupUsers);
+		System.debug('*** remoteGroupUsers = ' + remoteGroupUsers);
+		Map<String,List<String>> audiGroupUserIDs = new Map<String,List<String>>();
+		Set<String> userIdSet = new Set<String>();
+		
+		//PREPARE USER IDS BASED ON GROUPS TO BE PROCESSED
+		for(String str : audianceGroupIdMap.keySet()){
+			if(str.equals('CST')){
+				//List<GroupMember> cstGroupUsers = [Select Id, UserOrGroupId From GroupMember Where GroupId =: audianceGroupIdMap.get(str)];
+				List<String> cstGroupUserIds = new List<String>();
+				for(GroupMember gm : cstGroupUsers){
+					cstGroupUserIds.add(gm.UserOrGroupId);
+					userIdSet.add(gm.UserOrGroupId);
+				}
+				audiGroupUserIDs.put(str, cstGroupUserIds);
+			}
+			if(str.equals('Escalation Manager')){
+				System.debug('*** firing SOQL for Escalation');
+				//List<GroupMember> escGroupUsers = [Select Id, UserOrGroupId From GroupMember Where GroupId =: audianceGroupIdMap.get(str)];
+				List<String> escGroupUserIds = new List<String>();
+				for(GroupMember gm : escGroupUsers){
+					escGroupUserIds.add(gm.UserOrGroupId);
+					userIdSet.add(gm.UserOrGroupId);
+				}
+				audiGroupUserIDs.put(str, escGroupUserIds);
+			}
+			if(str.equals('Remote Support')){
+				System.debug('*** firing SOQL for Remote');
+				//List<GroupMember> remoteGroupUsers = [Select Id, UserOrGroupId From GroupMember Where GroupId =: audianceGroupIdMap.get(str)];
+				List<String> remoteGroupUsersIds = new List<String>();
+				for(GroupMember gm : remoteGroupUsers){
+					remoteGroupUsersIds.add(gm.UserOrGroupId);
+					userIdSet.add(gm.UserOrGroupId);
+				}
+				audiGroupUserIDs.put(str, remoteGroupUsersIds);
+			}
+		}
+		System.debug('*** userIdSet = ' + userIdSet);
+		Map<Id, User> usersMap = new Map<Id,User>([SELECT email FROM User WHERE Id IN : userIdSet ]);
+		System.debug('*** usersMap = ' + usersMap);
+		
+		Map<String, String> gNameUserEmailsMap = new Map<String, String>();
+		String emails = '';
+		//GET Notification_Email_ID__c VALUE(EMAILS OF GROUP MEMBERS)
+		for(Special_Instructions__c si : newSIList) {
+			if(audiGroupUserIDs.keySet().contains(si.Audience__c)){
+				System.debug('*** audiGroupUserIDs.get(str).size() = ' + audiGroupUserIDs.get(si.Audience__c).size());
+				for(Integer i=0; i < audiGroupUserIDs.get(si.Audience__c).size(); i++){
+					if(i==0){
+						emails = usersMap.get(audiGroupUserIDs.get(si.Audience__c)[i]).Email;
+					} else {
+						emails += ',';
+						emails += usersMap.get(audiGroupUserIDs.get(si.Audience__c)[i]).Email;
+					}
+				}
+			}
+			si.Notification_Email_ID__c = emails;
+			
+		System.debug('*** si.Notification_Email_ID__c  = ' + si.Notification_Email_ID__c );
+		}
+		
+	}
+	
+	public static void onCloningActions(List<Special_Instructions__c> newSIList){
+		for(Special_Instructions__c si : newSIList){
+			if(si.isClone()){
+				si.Active__c = false;
+				si.Status__c = 'New';
+				si.Effective_Date__c = System.TODAY();
+				si.Expiration_Date__c =  System.TODAY().addYears(1);
+				System.debug('**** SI Cloning done');
+			}
+		}
+	}
+	
 }
