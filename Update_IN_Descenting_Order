@@ -1,0 +1,47 @@
+ 
+    /* UPDTE RECORDS IN DESENDING ORDER */
+    public static Boolean doDescendingUpdate(List<Revenue_Schedule__c> unOrderedList, Integer chunkCount){
+        List<Revenue_Schedule__c> descRSList = new List<Revenue_Schedule__c>();
+        Map<Date, Revenue_Schedule__c> customMap = new Map<Date, Revenue_Schedule__c>();
+        for(Revenue_Schedule__c rs : unOrderedList){
+            customMap.put(rs.Period__c, rs);
+        }
+        //GET MAP BY DATE DESENDING ORDER
+        List<Date> descKeyListClone = sortToDESCOrder(customMap.keySet());
+        
+        for(Date key : descKeyListClone){
+            descRSList.add(customMap.get(key));
+        }
+        Boolean isDone = doDESCUpdate(customMap, descKeyListClone, chunkCount);
+		return isDone;
+    }//doDesendingUpdate
+    
+    /* DO CHUNCK UPDATES */
+    public static Boolean doDESCUpdate(Map<Date, Revenue_Schedule__c> customMap, List<Date> descKeyListClone, Integer chunkCount){
+        List<Revenue_Schedule__c> chunkRSList = new List<Revenue_Schedule__c>(); 
+        if(descKeyListClone.size() > 0){
+            Integer loopCount = (descKeyListClone.size() >= chunkCount) ? chunkCount : descKeyListClone.size();
+            
+            for(Integer i=0; i < loopCount;i++){
+                if(descKeyListClone.size() > 0){
+                    chunkRSList.add(customMap.get(descKeyListClone[0]));
+                    descKeyListClone.remove(0);
+                }
+            }
+            Database.update(chunkRSList);
+			//REPEAT THE SAME PROCESS UNTIL ALL RECORDS ARE UPDATED
+            doDESCUpdate(customMap, descKeyListClone, chunkCount);
+        }
+        return true;
+    }
+	/*  */
+    public static List<Date> sortToDESCOrder(Set<Date> allDates){
+        List<Date> keyList = new List<Date>(allDates);
+        keyList.sort();
+        List<Date> desendingList = new List<Date>();
+
+        for(Integer i = keyList.size()-1; i>=0;i--){
+            desendingList.add(keyList.get(i));
+        }
+        return desendingList;
+    }
